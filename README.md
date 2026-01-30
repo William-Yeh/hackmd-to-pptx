@@ -38,17 +38,17 @@ pip install --user python-pptx lxml PyYAML
 
 ```bash
 # Convert markdown to PowerPoint
-python convert.py input.md output.pptx
+python scripts/convert.py input.md output.pptx
 
 # Output name defaults to input.pptx
-python convert.py presentation.md
+python scripts/convert.py presentation.md
 ```
 
 ### Try the Example
 
 ```bash
 # Convert example slides
-python convert.py examples/demo.md test-output.pptx
+python scripts/convert.py examples/demo.md test-output.pptx
 
 # Open result
 open test-output.pptx  # macOS
@@ -170,11 +170,11 @@ Example files are in the `examples/` directory:
 cat examples/demo.md
 
 # Convert with default settings
-python convert.py examples/demo.md
+python scripts/convert.py examples/demo.md
 
 # Convert with custom config
 cp examples/config.json .
-python convert.py examples/demo.md
+python scripts/convert.py examples/demo.md
 ```
 
 ## Requirements

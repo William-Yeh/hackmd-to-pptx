@@ -43,10 +43,10 @@ See `references/SETUP.md` for detailed installation instructions including virtu
 
 ```bash
 # Convert markdown to PowerPoint
-python convert.py input.md output.pptx
+python scripts/convert.py input.md output.pptx
 
 # Use default output name (replaces .md with .pptx)
-python convert.py presentation.md
+python scripts/convert.py presentation.md
 ```
 
 ### With Custom Configuration
@@ -349,7 +349,7 @@ Example files are provided in the `examples/` directory:
 Try converting the demo:
 
 ```bash
-python convert.py examples/demo.md test-output.pptx
+python scripts/convert.py examples/demo.md test-output.pptx
 open test-output.pptx  # macOS
 # xdg-open test-output.pptx  # Linux
 # start test-output.pptx  # Windows
@@ -374,7 +374,7 @@ Convert multiple files with a shell loop:
 
 ```bash
 for file in slides/*.md; do
-  python convert.py "$file" "output/$(basename "$file" .md).pptx"
+  python scripts/convert.py "$file" "output/$(basename "$file" .md).pptx"
 done
 ```
 
@@ -399,7 +399,7 @@ Copy as `config.json` before conversion for dark theme slides.
 
 ### Adding Language Support
 
-Edit `convert.py` to add new languages to `SYNTAX_KEYWORDS` dictionary:
+Edit `scripts/convert.py` to add new languages to `SYNTAX_KEYWORDS` dictionary:
 
 ```python
 SYNTAX_KEYWORDS = {

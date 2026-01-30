@@ -113,7 +113,7 @@ python3 -c "import lxml; print('lxml:', lxml.__version__)"
 python3 -c "import yaml; print('PyYAML: OK')"
 
 # Test basic conversion
-python convert.py examples/demo.md test-output.pptx
+python scripts/convert.py examples/demo.md test-output.pptx
 
 # Verify output file exists
 ls -lh test-output.pptx
@@ -236,7 +236,7 @@ echo '{
 }' > config.json
 
 # Convert
-python convert.py test.md
+python scripts/convert.py test.md
 
 # Open and verify accent color is red
 open test.pptx  # macOS
@@ -384,7 +384,7 @@ Create a script to convert multiple files:
 for md_file in *.md; do
     output_file="${md_file%.md}.pptx"
     echo "Converting $md_file -> $output_file"
-    python convert.py "$md_file" "$output_file"
+    python scripts/convert.py "$md_file" "$output_file"
 done
 ```
 
@@ -413,7 +413,7 @@ To update the converter itself:
 git pull origin main
 
 # Then test
-python convert.py examples/demo.md test.pptx
+python scripts/convert.py examples/demo.md test.pptx
 ```
 
 ## Uninstallation

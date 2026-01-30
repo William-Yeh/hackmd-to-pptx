@@ -145,10 +145,10 @@ echo
 echo "Checking directory structure..."
 
 # Required files
-if [[ -f "convert.py" ]]; then
-    echo -e "  ${GREEN}✓${NC} convert.py (core converter)"
+if [[ -f "scripts/convert.py" ]]; then
+    echo -e "  ${GREEN}✓${NC} scripts/convert.py (core converter)"
 else
-    echo -e "  ${RED}✗${NC} convert.py missing"
+    echo -e "  ${RED}✗${NC} scripts/convert.py missing"
     ((errors++))
 fi
 
@@ -315,7 +315,7 @@ if [[ $errors -eq 0 && $warnings -eq 0 ]]; then
     echo "Your hackmd-to-pptx skill follows agentskills.io format."
     echo
     echo "Next steps:"
-    echo "  1. Test conversion: python convert.py examples/demo.md test.pptx"
+    echo "  1. Test conversion: python scripts/convert.py examples/demo.md test.pptx"
     echo "  2. Share your skill at https://agentskills.io"
     exit 0
 else
