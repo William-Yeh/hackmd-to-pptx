@@ -1,0 +1,33 @@
+# HackMD to PPTX Configuration
+# Place this file as config.yaml in the same directory as your markdown
+
+colors:
+  # Main theme colors
+  primary: "1E2761"      # Dark blue - section slide backgrounds
+  secondary: "CADCFC"    # Light blue - subtitles on dark backgrounds
+  accent: "0891B2"       # Teal - links, inline code
+  
+  # Background colors
+  lightBg: "F8FAFC"      # Light gray - content slide backgrounds
+  codeBlock: "F1F5F9"    # Code block background
+  codeBorder: "E2E8F0"   # Code block border
+  
+  # Text colors
+  darkText: "1E293B"     # Main body text
+  mutedText: "64748B"    # Subtitles, captions
+  white: "FFFFFF"        # Text on dark backgrounds
+  
+  # Syntax highlighting
+  syntaxKeyword: "7C3AED"   # Purple - keywords
+  syntaxString: "059669"    # Green - strings
+  syntaxComment: "6B7280"   # Gray - comments
+  syntaxNumber: "DC2626"    # Red - numbers
+  syntaxFunction: "2563EB"  # Blue - function names
+  syntaxType: "D97706"      # Orange - types/classes
+  syntaxDiffAdd: "059669"   # Green - diff additions
+  syntaxDiffDel: "DC2626"   # Red - diff deletions
+
+fonts:
+  header: "Trebuchet MS"    # Slide titles
+  body: "Calibri"           # Body text
+  code: "Consolas"          # Code blocks and inline code

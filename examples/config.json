@@ -1,0 +1,26 @@
+{
+  "colors": {
+    "primary": "1E2761",
+    "secondary": "CADCFC",
+    "accent": "0891B2",
+    "white": "FFFFFF",
+    "lightBg": "F8FAFC",
+    "darkText": "1E293B",
+    "mutedText": "64748B",
+    "codeBlock": "F1F5F9",
+    "codeBorder": "E2E8F0",
+    "syntaxKeyword": "7C3AED",
+    "syntaxString": "059669",
+    "syntaxComment": "6B7280",
+    "syntaxNumber": "DC2626",
+    "syntaxFunction": "2563EB",
+    "syntaxType": "D97706",
+    "syntaxDiffAdd": "059669",
+    "syntaxDiffDel": "DC2626"
+  },
+  "fonts": {
+    "header": "Trebuchet MS",
+    "body": "Calibri",
+    "code": "Consolas"
+  }
+}
