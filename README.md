@@ -1,9 +1,12 @@
 # HackMD to PowerPoint Converter
 
+[![CI](https://github.com/William-Yeh/hackmd-to-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/William-Yeh/hackmd-to-pptx/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-blue)](https://agentskills.io)
+
+
 Convert HackMD/Marp-style markdown slides to professional PowerPoint presentations with syntax highlighting and slide master support.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
