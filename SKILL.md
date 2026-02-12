@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Python 3.8+, python-pptx, lxml, PyYAML
 metadata:
   author: William Yeh
-  version: "1.0.0"
+  version: "1.1.0"
   languages: python,javascript,java,kotlin,go,rust,ruby,php,sql,bash,yaml,html,cpp
 ---
 
