@@ -20,7 +20,23 @@ Convert HackMD/Marp-style markdown slides to professional PowerPoint presentatio
 
 ## Quick Start
 
-### Installation
+### Install as Agent Skill
+
+```bash
+# Install to Claude Code (or other supported agents)
+npx skills add William-Yeh/hackmd-to-pptx
+
+# Install globally (available across all projects)
+npx skills add William-Yeh/hackmd-to-pptx -g
+```
+
+Then install the Python dependencies:
+
+```bash
+pip install python-pptx lxml PyYAML
+```
+
+### Manual Installation
 
 ```bash
 # Clone repository
@@ -29,12 +45,6 @@ cd hackmd-to-pptx
 
 # Install dependencies
 pip install -r requirements.txt
-```
-
-Or install to user directory:
-
-```bash
-pip install --user python-pptx lxml PyYAML
 ```
 
 ### Basic Usage

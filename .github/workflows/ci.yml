@@ -20,3 +20,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uvx --from skills-ref agentskills validate .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv pip install --system -r requirements-dev.txt
+      - run: uv run pytest tests/ -v

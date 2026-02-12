@@ -27,7 +27,26 @@ This skill converts markdown slide files into PowerPoint presentations with:
 
 ## Quick Start
 
-### Installation
+### Installation as Agent Skill
+
+```bash
+# Install to Claude Code (or other supported agents)
+npx skills add William-Yeh/hackmd-to-pptx
+
+# Install globally (available across all projects)
+npx skills add William-Yeh/hackmd-to-pptx -g
+
+# Install to a specific agent
+npx skills add William-Yeh/hackmd-to-pptx -a claude-code
+```
+
+After installing the skill, install the Python dependencies it needs:
+
+```bash
+pip install python-pptx lxml PyYAML
+```
+
+### Manual Installation
 
 ```bash
 # Install Python dependencies
