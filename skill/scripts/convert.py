@@ -1,4 +1,14 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# /// script
+# Inline metadata for standalone execution (uv run skill/scripts/convert.py).
+# For project-based install, see pyproject.toml.
+# requires-python = ">=3.9"
+# dependencies = [
+#   "python-pptx>=0.6.21",
+#   "lxml>=4.9.0",
+#   "PyYAML>=6.0",
+# ]
+# ///
 """
 HackMD/Marp Markdown to PowerPoint Converter
 Uses python-pptx for proper slide master/layout placeholder support

@@ -161,14 +161,13 @@ Just plain descriptive text.
 ❌ Wrong:
 ```markdown
 - [] No space
-- [X] Capital X
 - [ x ] Spaces inside brackets
 ```
 
 **Requirements:**
 - Must be part of a bullet list (line starts with `-` or `*`)
 - Exactly one space between brackets: `[ ]`
-- Lowercase x for checked: `[x]`
+- Both `[x]` and `[X]` are accepted for checked state
 
 ### Hyperlinks Not Clickable
 
@@ -313,7 +312,7 @@ https://example.com  # Plain URL (not a markdown link)
 
    Add debug output:
    ```bash
-   python scripts/convert.py input.md output.pptx --verbose  # if supported
+   uv run scripts/convert.py input.md output.pptx --verbose  # if supported
    # Or check converter source to ensure config loading works
    ```
 
@@ -342,7 +341,7 @@ See SETUP.md for detailed installation instructions.
 
 1. **Use absolute path:**
    ```bash
-   python scripts/convert.py /full/path/to/slides.md /full/path/to/output.pptx
+   uv run scripts/convert.py /full/path/to/slides.md /full/path/to/output.pptx
    ```
 
 2. **Navigate to file directory:**
@@ -374,7 +373,7 @@ See SETUP.md for detailed installation instructions.
    ls -la output.pptx
 
    # Write to home directory instead
-   python scripts/convert.py input.md ~/output.pptx
+   uv run scripts/convert.py input.md ~/output.pptx
    ```
 
 3. **Directory doesn't exist**
@@ -382,7 +381,7 @@ See SETUP.md for detailed installation instructions.
    Solution:
    ```bash
    mkdir -p output/
-   python scripts/convert.py input.md output/slides.pptx
+   uv run scripts/convert.py input.md output/slides.pptx
    ```
 
 ### Empty Output File
@@ -519,8 +518,8 @@ See SETUP.md for detailed installation instructions.
 1. **Split large presentations:**
    ```bash
    # Convert chapters separately
-   python scripts/convert.py chapter1.md ch1.pptx
-   python scripts/convert.py chapter2.md ch2.pptx
+   uv run scripts/convert.py chapter1.md ch1.pptx
+   uv run scripts/convert.py chapter2.md ch2.pptx
    # Merge in PowerPoint
    ```
 
@@ -577,7 +576,7 @@ pip install --user lxml
 
 1. **Check the examples:**
    ```bash
-   python scripts/convert.py examples/demo.md test.pptx
+   uv run scripts/convert.py examples/demo.md test.pptx
    ```
    If this works, the issue is in your markdown.
 
@@ -599,15 +598,3 @@ pip install --user lxml
    - Include OS: macOS/Windows/Linux version
 
 See SETUP.md for installation help and SYNTAX.md for markdown reference.
----
-
-## Common Issues
-
-### Bullets Not Showing
-
-**Problem:** Text appears without bullet points
-
-**Cause:** Only lines with `-` or `*` prefix get bullets (this is intentional)
-
-**Solution:**
-```markdown
