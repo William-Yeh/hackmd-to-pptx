@@ -599,3 +599,15 @@ pip install --user lxml
    - Include OS: macOS/Windows/Linux version
 
 See SETUP.md for installation help and SYNTAX.md for markdown reference.
+---
+
+## Common Issues
+
+### Bullets Not Showing
+
+**Problem:** Text appears without bullet points
+
+**Cause:** Only lines with `-` or `*` prefix get bullets (this is intentional)
+
+**Solution:**
+```markdown

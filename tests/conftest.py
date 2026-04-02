@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-# Make scripts/ importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+# Make skill/scripts/ importable
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "skill" / "scripts"))
 
 from convert import DEFAULT_COLORS, DEFAULT_FONTS
 

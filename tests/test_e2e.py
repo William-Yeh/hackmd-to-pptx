@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from pptx import Presentation
 
-CONVERT_SCRIPT = str(Path(__file__).resolve().parent.parent / "scripts" / "convert.py")
+CONVERT_SCRIPT = str(Path(__file__).resolve().parent.parent / "skill" / "scripts" / "convert.py")
 DEMO_MD = str(Path(__file__).resolve().parent.parent / "examples" / "demo.md")
 
 
