@@ -1,7 +1,7 @@
-#!/usr/bin/env -S uv run
-# /// script
+#!/usr/bin/env -S uv run --script
 # Inline metadata for standalone execution (uv run skill/scripts/convert.py).
 # For project-based install, see pyproject.toml.
+# /// script
 # requires-python = ">=3.9"
 # dependencies = [
 #   "python-pptx>=0.6.21",

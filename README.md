@@ -40,8 +40,9 @@ uv sync
 After installing, try these prompts with your agent:
 
 - `Convert my slides.md to a PowerPoint presentation`
-- `Turn this HackMD markdown file into a PPTX`
 - `Create a presentation from my Marp slides with syntax highlighting`
+- `Merge unit1.md, unit2.md, unit3.md into one deck with a table of contents`
+- `Combine these HackMD files into a single PPTX, one section per file`
 
 ### CLI Usage
 
@@ -77,6 +78,21 @@ for file in slides/*.md; do
   uv run skill/scripts/convert.py "$file" "output/$(basename "$file" .md).pptx"
 done
 ```
+
+### Merging Multiple Decks
+
+Combine several HackMD/Marp files into one deck. Each input becomes a top-level section, its slides become sub-slides, and a Table of Contents slide is emitted as the first section by default:
+
+```bash
+uv run skill/scripts/merge.py deck1.md deck2.md deck3.md -o merged.md
+uv run skill/scripts/convert.py merged.md merged.pptx
+```
+
+Flags:
+- `--title "Combined Deck"` — override the merged file's `title:` and the TOC slide's heading.
+- `--no-toc` — suppress the Table of Contents slide.
+
+The first deck's frontmatter and `<style>` block (if any) are carried over to the merged file. See [skill/SKILL.md](skill/SKILL.md) for full input requirements and edge cases.
 
 ### Custom Color Schemes
 
