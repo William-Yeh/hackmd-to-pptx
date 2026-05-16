@@ -190,6 +190,52 @@ https://example.com  # Plain URL (not a markdown link)
 
 **Note:** Plain URLs (without `[text](url)` syntax) are not auto-converted to links.
 
+### Table Not Rendering as a Table
+
+**Problem:** A markdown table appears as plain text or bullet-like lines instead of a styled table shape.
+
+**Common Causes:**
+
+1. **Missing separator row**
+
+   ❌ Wrong (no `|---|` row → treated as text):
+   ```markdown
+   | a | b |
+   | 1 | 2 |
+   ```
+
+   ✅ Correct:
+   ```markdown
+   | a | b |
+   |---|---|
+   | 1 | 2 |
+   ```
+
+2. **Separator has fewer than 3 dashes**
+
+   ❌ Wrong: `| -- | -- |` (needs `---` or more)
+
+   ✅ Correct: `|---|---|`
+
+3. **Blank line between header and separator**
+
+   ❌ Wrong:
+   ```markdown
+   | a | b |
+
+   |---|---|
+   ```
+
+   The separator must be on the line *immediately* after the header.
+
+4. **Literal pipe inside a cell not escaped**
+
+   ❌ Wrong: `| a | b | c |` when you wanted three columns but one cell contained `b | c`.
+
+   ✅ Use `\|` for a literal pipe: `| a | b \| c |` (2 columns; second cell is `b | c`).
+
+**Solution:** Verify header + `|---|...|` separator on consecutive lines, with 3+ dashes per column.
+
 ## Configuration Issues
 
 ### Configuration Not Applied

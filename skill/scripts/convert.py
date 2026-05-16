@@ -170,6 +170,10 @@ SYNTAX_KEYWORDS['sc'] = SYNTAX_KEYWORDS['scala']
 SYNTAX_KEYWORDS['hs'] = SYNTAX_KEYWORDS['haskell']
 SYNTAX_KEYWORDS['lhs'] = SYNTAX_KEYWORDS['haskell']
 
+# GFM table separator: matches "|---|" / "|:---|---:|" / etc.
+# The trailing group is `*` (not `+`) so single-column tables are valid GFM.
+_TABLE_SEPARATOR_RE = re.compile(r'^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$')
+
 def hex_to_rgb(hex_color):
     """Convert hex color to RGBColor"""
     hex_color = hex_color.lstrip('#')
@@ -379,6 +383,19 @@ def parse_markdown(content):
     
     return slides
 
+def _split_table_row(line):
+    """Split a GFM table row on unescaped '|' and trim outer pipes."""
+    # Temporarily mask escaped pipes so we can split on real ones
+    masked = line.replace(r'\|', '\x00')
+    parts = masked.split('|')
+    # Drop leading/trailing empty cell from outer pipes
+    if parts and parts[0].strip() == '':
+        parts = parts[1:]
+    if parts and parts[-1].strip() == '':
+        parts = parts[:-1]
+    return [p.replace('\x00', '|').strip() for p in parts]
+
+
 def parse_slide(content):
     """Parse individual slide content"""
     lines = content.split('\n')
@@ -389,31 +406,36 @@ def parse_slide(content):
         'notes': None,
         'is_section': False,
     }
-    
+
     in_note = False
     in_code_block = False
     code_block_content = []
     code_block_lang = ''
     note_content = []
-    
-    for line in lines:
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
         # Check for note marker
-        if line.strip().lower().startswith('note:'):
+        if stripped.lower().startswith('note:'):
             in_note = True
-            note_start = line[line.lower().index('note:') + 5:].strip()
+            note_start = stripped[5:].strip()
             if note_start:
                 note_content.append(note_start)
+            i += 1
             continue
-        
+
         if in_note:
             note_content.append(line)
+            i += 1
             continue
-        
+
         # Check for code block
-        if line.strip().startswith('```'):
+        if stripped.startswith('```'):
             if not in_code_block:
                 in_code_block = True
-                code_block_lang = line.strip()[3:].strip()
+                code_block_lang = stripped[3:].strip()
                 code_block_content = []
             else:
                 in_code_block = False
@@ -422,23 +444,47 @@ def parse_slide(content):
                     'lang': code_block_lang,
                     'content': '\n'.join(code_block_content),
                 })
+            i += 1
             continue
-        
+
         if in_code_block:
             code_block_content.append(line)
+            i += 1
             continue
-        
+
         # Parse headers
         if line.startswith('# '):
             slide['title'] = line
+            i += 1
             continue
         if line.startswith('## '):
             slide['title'] = line
+            i += 1
             continue
         if line.startswith('### '):
             slide['subtitle'] = line[4:].strip()
+            i += 1
             continue
-        
+
+        # Parse GFM tables: a header row like "| a | b |" followed by a
+        # separator row like "|---|---|" on the next line. Body rows continue
+        # until a blank line or a non-`|` line (GFM termination rules).
+        if stripped.startswith('|') and i + 1 < len(lines) and _TABLE_SEPARATOR_RE.match(lines[i + 1]):
+            header = _split_table_row(stripped)
+            rows = []
+            j = i + 2
+            while j < len(lines):
+                cur = lines[j].strip()
+                if not cur:
+                    break  # blank line ends the table per GFM
+                if not cur.startswith('|'):
+                    break  # non-table content ends the table
+                rows.append(_split_table_row(cur))
+                j += 1
+            slide['content'].append({'type': 'table', 'header': header, 'rows': rows})
+            i = j
+            continue
+
         # Parse bullet list items (- or *)
         bullet_match = re.match(r'^(\s*)[-*]\s+(.+)', line)
         if bullet_match:
@@ -450,8 +496,9 @@ def parse_slide(content):
             elif text.startswith('[x] ') or text.startswith('[X] '):
                 text = '☑ ' + text[4:]
             slide['content'].append({'type': 'bullet', 'text': text, 'indent': indent})
+            i += 1
             continue
-        
+
         # Parse numbered list items
         numbered_match = re.match(r'^(\s*)(\d+)\.\s+(.+)', line)
         if numbered_match:
@@ -459,15 +506,17 @@ def parse_slide(content):
             num = numbered_match.group(2)
             text = numbered_match.group(3)
             slide['content'].append({'type': 'numbered', 'number': num, 'text': text, 'indent': indent})
+            i += 1
             continue
-        
+
         # Plain text (NOT a bullet - no bullet formatting)
-        if line.strip():
-            slide['content'].append({'type': 'text', 'text': line.strip(), 'indent': 0})
-    
+        if stripped:
+            slide['content'].append({'type': 'text', 'text': stripped, 'indent': 0})
+        i += 1
+
     if note_content:
         slide['notes'] = '\n'.join(note_content)
-    
+
     return slide
 
 def add_hyperlink(run, url):
@@ -509,6 +558,75 @@ def disable_bullet(paragraph):
             pPr.remove(child)
     # Add buNone to explicitly disable bullets
     buNone = etree.SubElement(pPr, qn('a:buNone'))
+
+def style_table_cell(cell, text, *, is_header, colors, fonts):
+    """Apply visual styling to a single table cell.
+
+    Header: filled accent background + bold white text.
+    Body:   default fill, dark text, normal weight.
+    Cell text supports the same inline markdown (bold/italic/code/links)
+    as the rest of the deck via add_formatted_runs.
+    """
+    tf = cell.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    # p.clear() drops runs/breaks/fields but preserves <a:pPr>, so any
+    # alignment inherited from a table style survives.
+    p.clear()
+    add_formatted_runs(p, text, colors, fonts)
+
+    if is_header:
+        cell.fill.solid()
+        cell.fill.fore_color.rgb = hex_to_rgb(colors['accent'])
+        # Force bold + white on every run so accent-colored `code` runs
+        # don't vanish on the accent background. font.name stays conditional
+        # so inline `code` keeps its monospace font.
+        for run in p.runs:
+            run.font.bold = True
+            run.font.color.rgb = hex_to_rgb(colors['white'])
+            if run.font.name is None:
+                run.font.name = fonts['body']
+    else:
+        # Preserve colors/fonts that add_formatted_runs already chose
+        # (accent+monospace for `code`, accent for links); only fill defaults.
+        for run in p.runs:
+            if run.font.color.type is None:
+                run.font.color.rgb = hex_to_rgb(colors['darkText'])
+            if run.font.name is None:
+                run.font.name = fonts['body']
+
+
+def add_table_to_slide(slide, table_data, top, colors, fonts):
+    """Render a parsed table dict onto `slide` starting at vertical offset `top`.
+
+    `top` is an EMU length (e.g. the result of `Inches(1.5)`), not a float.
+    Returns the next y-offset (EMU) the caller should continue from.
+
+    Precondition: `table_data['header']` is a non-empty list. The parser
+    guarantees this — a header-less table dict is never emitted.
+    """
+    header = table_data['header']
+    rows = table_data.get('rows', [])
+    assert header, "table_data['header'] must be non-empty (parser invariant)"
+
+    n_cols = len(header)
+    n_rows = 1 + len(rows)
+    # Row height minimum; python-pptx auto-fit will expand if a cell is taller.
+    height = Inches(0.45 * n_rows)
+
+    gf = slide.shapes.add_table(n_rows, n_cols, Inches(0.5), top, Inches(9), height)
+    table = gf.table
+
+    for c, cell_text in enumerate(header):
+        style_table_cell(table.cell(0, c), cell_text, is_header=True, colors=colors, fonts=fonts)
+
+    for r, row in enumerate(rows, start=1):
+        for c in range(n_cols):
+            cell_text = row[c] if c < len(row) else ''
+            style_table_cell(table.cell(r, c), cell_text, is_header=False, colors=colors, fonts=fonts)
+
+    return top + height + Inches(0.15)
+
 
 def add_section_slide(prs, slide_data, colors, fonts):
     """Add a section/title slide using Title Slide layout (index 0)"""
@@ -575,10 +693,13 @@ def add_content_slide(prs, slide_data, colors, fonts):
     if body_shape and slide_data['content']:
         tf = body_shape.text_frame
         
-        # Check for code blocks
-        has_code = any(item['type'] == 'codeblock' for item in slide_data['content'])
-        
-        if not has_code:
+        # Code blocks and tables can't live in the body placeholder (it can't
+        # hold a GraphicFrame or styled box); both force explicit positioning.
+        needs_explicit_layout = any(
+            item['type'] in ('codeblock', 'table') for item in slide_data['content']
+        )
+
+        if not needs_explicit_layout:
             # Use body placeholder
             first_para = True
             
@@ -605,7 +726,6 @@ def add_content_slide(prs, slide_data, colors, fonts):
                 # Add formatted runs (bold, italic, code, links)
                 add_formatted_runs(p, text, colors, fonts)
         else:
-            # Has code blocks - use explicit positioning
             tf.clear()
             p = tf.paragraphs[0]
             p.text = ""
@@ -646,6 +766,8 @@ def add_content_slide(prs, slide_data, colors, fonts):
                         run.font.color.rgb = hex_to_rgb(seg['color'])
                     
                     y_pos += Inches(code_height + 0.15)
+                elif item['type'] == 'table':
+                    y_pos = add_table_to_slide(slide, item, y_pos, colors, fonts)
                 else:
                     # Text content
                     text_box = slide.shapes.add_textbox(

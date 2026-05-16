@@ -9,6 +9,7 @@ Convert HackMD/Marp-style markdown slides to professional PowerPoint presentatio
 ## Features
 
 - **Full Markdown Support** — Bold, italic, code, links, checkboxes
+- **GFM Tables** — Markdown tables become real PowerPoint table shapes with a styled header row
 - **Syntax Highlighting** — 20+ programming languages with customizable colors
 - **Smart Layouts** — Auto-detects section vs content slides
 - **Collapsible Sections** — Organize slides with `---` separators

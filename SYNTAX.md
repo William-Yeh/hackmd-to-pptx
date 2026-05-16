@@ -325,6 +325,73 @@ No syntax highlighting
 
 **Note:** Very long code blocks (>30 lines) may overflow. Split into multiple slides if needed.
 
+## Tables
+
+### Basic Table
+
+```markdown
+| Module | Status | Notes |
+|---|---|---|
+| Login | Done | OAuth integrated |
+| Search | Partial | Index rebuild pending |
+| Reports | Not started | Awaiting PM spec |
+```
+
+**Result:** A real PowerPoint table shape with a styled header row (accent background, bold white text) and body rows in normal text.
+
+### Empty Cells (Worksheet Pattern)
+
+Empty cells are preserved as-is, which makes the converter useful for fill-in worksheets:
+
+```markdown
+| Type | What I see | Why it's risky |
+|---|---|---|
+| Unclear |  |  |
+| Vague requirement |  |  |
+| Insufficient validation |  |  |
+```
+
+### Alignment Markers
+
+GFM alignment markers in the separator row are accepted (alignment metadata is currently not propagated to the rendered cell):
+
+```markdown
+| Left | Center | Right |
+|:---|:---:|---:|
+| a | b | c |
+```
+
+### Inline Formatting Inside Cells
+
+Cells support the same inline markdown as the rest of the deck — bold, italic, `code`, and links:
+
+```markdown
+| Item | Detail |
+|---|---|
+| **Bold** | `code` |
+| _Italic_ | [link](https://example.com) |
+```
+
+In header cells, bold and white are forced for legibility against the accent background; inline `code` keeps its monospace font.
+
+### Escaped Pipes
+
+Use `\|` to include a literal pipe inside a cell:
+
+```markdown
+| Expression | Meaning |
+|---|---|
+| `a \| b` | `a` OR `b` |
+```
+
+### Table Rules
+
+- A header row plus a `|---|---|` separator on the next line is required to start a table.
+- A blank line, a non-`|` line, or end-of-input ends the table.
+- A single `| ... |` line without a following separator is treated as plain text, not a table.
+- Single-column tables (`| col |` + `|---|`) are valid.
+- A table can't share a slide layout with the body placeholder; like code blocks, tables force explicit positioning. Don't put both a long bullet list and a tall table on the same slide.
+
 ## Special Elements
 
 ### Checkboxes
@@ -609,7 +676,6 @@ GitHub: github.com/yourname
 
 ### Not Supported
 
-- Tables (use code blocks or plain text)
 - Images (add manually in PowerPoint)
 - Videos (add manually in PowerPoint)
 - Multi-column layouts (edit in PowerPoint)
@@ -763,6 +829,7 @@ Retention improved with new features.
 | Number | `1. text` | 1. text |
 | Checkbox | `- [ ]`, `- [x]` | ☐, ☑ |
 | Code block | ` ```lang` | Highlighted code |
+| Table | `\| a \| b \|` + `\|---\|---\|` | Styled table |
 | Note | `note:` + text | Speaker note |
 
 ## See Also

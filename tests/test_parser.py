@@ -45,6 +45,93 @@ class TestParseSlide:
         slide = parse_slide("## T\n  - nested")
         assert slide["content"][0]["indent"] == 1
 
+    def test_table_basic(self):
+        md = (
+            "## T\n"
+            "| a | b |\n"
+            "|---|---|\n"
+            "| 1 | 2 |\n"
+            "| 3 | 4 |\n"
+        )
+        slide = parse_slide(md)
+        tables = [c for c in slide["content"] if c["type"] == "table"]
+        assert len(tables) == 1
+        assert tables[0]["header"] == ["a", "b"]
+        assert tables[0]["rows"] == [["1", "2"], ["3", "4"]]
+
+    def test_table_empty_cells(self):
+        md = (
+            "## T\n"
+            "| 類型 | 我看到的問題 | 為什麼這是風險？ |\n"
+            "|---|---|---|\n"
+            "| 看不懂 |  |  |\n"
+            "| 需求不明 |  |  |\n"
+        )
+        slide = parse_slide(md)
+        table = next(c for c in slide["content"] if c["type"] == "table")
+        assert table["header"] == ["類型", "我看到的問題", "為什麼這是風險？"]
+        assert table["rows"][0] == ["看不懂", "", ""]
+        assert table["rows"][1] == ["需求不明", "", ""]
+
+    def test_table_alignment_separator_accepted(self):
+        # GFM allows :--- / :---: / ---: in the separator row
+        md = (
+            "## T\n"
+            "| a | b | c |\n"
+            "|:---|:---:|---:|\n"
+            "| L | C | R |\n"
+        )
+        slide = parse_slide(md)
+        tables = [c for c in slide["content"] if c["type"] == "table"]
+        assert len(tables) == 1
+        assert tables[0]["rows"] == [["L", "C", "R"]]
+
+    def test_table_escaped_pipe_in_cell(self):
+        md = (
+            "## T\n"
+            "| a | b |\n"
+            "|---|---|\n"
+            r"| x \| y | z |"
+            "\n"
+        )
+        slide = parse_slide(md)
+        table = next(c for c in slide["content"] if c["type"] == "table")
+        assert table["rows"][0] == ["x | y", "z"]
+
+    def test_single_pipe_line_is_not_a_table(self):
+        # Without a following separator row, a "| ... |" line stays as text
+        md = "## T\n| not a table |\n- after"
+        slide = parse_slide(md)
+        assert not any(c["type"] == "table" for c in slide["content"])
+
+    def test_single_column_table(self):
+        md = (
+            "## T\n"
+            "| col |\n"
+            "|---|\n"
+            "| a |\n"
+            "| b |\n"
+        )
+        slide = parse_slide(md)
+        table = next(c for c in slide["content"] if c["type"] == "table")
+        assert table["header"] == ["col"]
+        assert table["rows"] == [["a"], ["b"]]
+
+    def test_table_terminated_by_blank_line(self):
+        md = (
+            "## T\n"
+            "| a | b |\n"
+            "|---|---|\n"
+            "| 1 | 2 |\n"
+            "\n"
+            "- bullet after table\n"
+        )
+        slide = parse_slide(md)
+        table = next(c for c in slide["content"] if c["type"] == "table")
+        assert table["rows"] == [["1", "2"]]
+        bullets = [c for c in slide["content"] if c["type"] == "bullet"]
+        assert len(bullets) == 1
+
 
 class TestParseMarkdown:
     def test_frontmatter_removal(self):
