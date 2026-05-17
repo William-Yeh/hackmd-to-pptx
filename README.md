@@ -16,6 +16,7 @@ Convert HackMD/Marp-style markdown slides to professional PowerPoint presentatio
 - **Speaker Notes** — Preserve `note:` blocks for presenter view
 - **Slide Master** — Edit once, apply to all slides
 - **Custom Themes** — Configure colors and fonts via JSON/YAML
+- **HackMD `<style>` Blocks** — Top-of-deck CSS is translated to PowerPoint run properties (font size, color, weight) with a WCAG contrast guard
 
 
 ## Installation
@@ -93,7 +94,7 @@ Flags:
 - `--title "Combined Deck"` — override the merged file's `title:` and the TOC slide's heading.
 - `--no-toc` — suppress the Table of Contents slide.
 
-The first deck's frontmatter and `<style>` block (if any) are carried over to the merged file. See [skill/SKILL.md](skill/SKILL.md) for full input requirements and edge cases.
+The first deck's frontmatter and `<style>` block (if any) are carried over to the merged file, and `convert.py` translates the supported CSS subset into PowerPoint run properties. See [skill/SKILL.md](skill/SKILL.md) for the supported selectors/properties and full input requirements.
 
 ### Custom Color Schemes
 

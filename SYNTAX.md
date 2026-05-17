@@ -725,6 +725,44 @@ Fonts defined in config.json affect:
 }
 ```
 
+### HackMD `<style>` Blocks
+
+A `<style>...</style>` block placed at the top of the markdown (between YAML frontmatter and the first heading) is translated into PowerPoint run properties. Per-slide `<style>` blocks deeper in the deck are ignored.
+
+```markdown
+---
+title: My Deck
+---
+
+<style>
+.reveal .slides              { text-align: left; font-size: 28px; }
+.reveal .slides h1           { color: #FFC500; }
+.reveal .slides code         { font-size: 24px; }
+.reveal .slides blockquote   { font-style: normal; }
+</style>
+
+# First Slide
+```
+
+**Selectors are matched on the trailing token**, so `.reveal .slides h1` resolves the same as `h1`. Supported tokens:
+
+- *(bare)* `.reveal .slides` — slide-body default
+- `h1`, `h2`, `h3` — slide titles
+- `code`, `pre` — inline code only (fenced code blocks render at a fixed 11pt to fit their auto-sized textbox)
+- `p`, `li`, `a`, `blockquote`, `table` — other body elements
+
+Supported properties: `color`, `background-color`, `font-size`, `font-family`, `font-weight`, `font-style`, `text-align`, `text-decoration`. Anything else is silently dropped.
+
+Values accept `#RRGGBB`, `#RGB`, `rgb(...)`, or common named colors. Font sizes accept `px`, `pt`, or `em` (1em ≈ 16px). `px` is treated as `pt` at slide scale.
+
+**Contrast guard:** A `color:` that fails WCAG AA (4.5:1) against the slide background is dropped and the run falls back to its default. The converter targets the default Office white background. For dark slide masters, set `colors.slideBg` in `config.json` so the guard sees the real background:
+
+```json
+{ "colors": { "slideBg": "1E2761" } }
+```
+
+`config.json` values and `<style>` rules can be combined. `<style>` wins for properties it sets; `config.json` provides everything else.
+
 ## Examples by Use Case
 
 ### Technical Presentation

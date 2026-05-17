@@ -362,6 +362,44 @@ https://example.com  # Plain URL (not a markdown link)
    # Or check converter source to ensure config loading works
    ```
 
+### `<style>` Block Not Applied
+
+**Problem:** A top-of-deck `<style>...</style>` block doesn't change the rendered slides.
+
+**Debugging Steps:**
+
+1. **Check converter output** — when `convert.py` picks up a style block it prints:
+
+   ```
+   Loaded style overrides: ['', 'code', 'h1']
+   ```
+
+   If you don't see that line, the block isn't being detected. Make sure it sits **between** the YAML frontmatter and the first markdown heading (`# `, `## `, `### `), with no other content in between.
+
+2. **Verify selector** — only the trailing token is matched. `h1`, `.reveal .slides h1`, and `.deck h1` all resolve to `h1`. Supported tokens: bare slide default, `h1`/`h2`/`h3`, `code`, `pre`, `p`, `li`, `a`, `blockquote`, `table`. Class selectors like `.my-callout` are not honored.
+
+3. **Verify property** — only `color`, `background-color`, `font-size`, `font-family`, `font-weight`, `font-style`, `text-align`, `text-decoration` are honored. Anything else (margin, padding, transform, etc.) is silently dropped.
+
+### Title Color Dropped / Contrast Guard
+
+**Problem:** `<style>` sets a title `color:` but the rendered title is still in the default dark text.
+
+**Cause:** The converter applies a WCAG AA contrast guard (4.5:1) against the slide background. The default Office theme uses a white background, so light/saturated title colors (gold, yellow, light blue) commonly fail and get dropped.
+
+**Solutions:**
+
+- If your slide master has a dark background, tell the contrast guard about it via `config.json`:
+
+  ```json
+  { "colors": { "slideBg": "1E2761" } }
+  ```
+
+  The color now passes contrast against the declared background and survives.
+
+- If your background is genuinely light, pick a darker title color. E.g. `#FFC500` on white fails (1.6:1); `#8A6500` on white passes (4.8:1).
+
+- The guard is intentional: it prevents unreadable slides. There is no flag to bypass it.
+
 ## Conversion Errors
 
 ### Import Errors

@@ -73,4 +73,25 @@ Place `config.json` or `config.yaml` in the same directory as the markdown file:
 
 **Colors:** 6-digit hex without `#`, all keys optional. **Fonts:** system font names, all keys optional.
 
+## HackMD `<style>` blocks
+
+A `<style>...</style>` block placed at the top of the markdown (between frontmatter and the first heading) is translated to PowerPoint run properties. Per-slide `<style>` blocks deeper in the deck are ignored.
+
+**Supported selectors** (matched on the *trailing* token, so `.reveal .slides h1` resolves the same as `h1`):
+
+- bare `.reveal .slides` — slide-body default
+- `h1`, `h2`, `h3` — slide titles
+- `code`, `pre` — inline code only (fenced code blocks render at a fixed 11pt to fit their auto-sized textbox)
+- `p`, `li`, `a`, `blockquote`, `table` — other body elements
+
+**Supported properties:**
+
+- `color`, `background-color`
+- `font-size`, `font-family`, `font-weight`, `font-style`
+- `text-align`, `text-decoration`
+
+Everything else is silently dropped. Values may use `#RRGGBB`, `#RGB`, `rgb(...)`, or common named colors. Font sizes accept `px`, `pt`, or `em` (1em ≈ 16px).
+
+**Contrast guard.** When a CSS `color` would fail WCAG AA (4.5:1) against the slide background, it is dropped and the run falls back to its default. The converter targets the default Office white background; if your slide master uses a dark background, set `colors.slideBg` in `config.json` so the guard sees the real background.
+
 

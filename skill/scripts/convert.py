@@ -174,10 +174,292 @@ SYNTAX_KEYWORDS['lhs'] = SYNTAX_KEYWORDS['haskell']
 # The trailing group is `*` (not `+`) so single-column tables are valid GFM.
 _TABLE_SEPARATOR_RE = re.compile(r'^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$')
 
+# --- HackMD/Marp <style> block ---------------------------------------------
+#
+# Only a tiny, hand-picked subset of CSS is honored:
+#   - selectors: keyed by the *trailing token* (`h1`, `code`, `blockquote`,
+#     `p`, `a`, `table`) or `""` for the bare `.reveal .slides` slide-default.
+#   - properties: the SUPPORTED_CSS_PROPERTIES whitelist below.
+# Everything else is silently dropped. This keeps the surface small enough
+# that a regex parser is more readable than pulling in tinycss2.
+SUPPORTED_CSS_PROPERTIES = frozenset({
+    'color', 'background-color',
+    'font-size', 'font-family', 'font-weight', 'font-style',
+    'text-align', 'text-decoration',
+})
+
+# Slide elements we know how to target. The renderer reads from this map.
+SUPPORTED_CSS_SELECTORS = frozenset({
+    '',           # bare `.reveal .slides`  → body default
+    'h1', 'h2', 'h3',
+    'p',
+    'code', 'pre',
+    'a',
+    'blockquote',
+    'table',
+    'li',
+})
+
+_STYLE_TAG_RE = re.compile(r'<style\b[^>]*>(.*?)</style>', re.IGNORECASE | re.DOTALL)
+_CSS_COMMENT_RE = re.compile(r'/\*.*?\*/', re.DOTALL)
+_CSS_RULE_RE = re.compile(r'([^{}]+)\{([^{}]*)\}', re.DOTALL)
+
+
+def _normalize_selector(selector):
+    """Reduce a selector like `.reveal .slides h1` to its trailing token `h1`.
+
+    Returns `""` for `.reveal .slides` alone (slide-body default), and the
+    raw last whitespace-separated token otherwise. Unknown tokens are passed
+    through; the caller filters them against SUPPORTED_CSS_SELECTORS.
+    """
+    cleaned = selector.strip().rstrip(',').strip()
+    if not cleaned:
+        return None
+    tokens = cleaned.split()
+    if not tokens:
+        return None
+    last = tokens[-1]
+    # `.reveal .slides` with no trailing element → body default
+    if last == '.slides' and len(tokens) >= 2 and tokens[-2] == '.reveal':
+        return ''
+    # Strip a leading combinator we don't model (`>`, `+`, `~`)
+    if last in ('>', '+', '~'):
+        return None
+    return last.lower()
+
+
+def parse_style_block(css_text):
+    """Parse a <style> block (or raw CSS) into {selector_token: {prop: value}}.
+
+    The function tolerates:
+      - text with or without `<style>...</style>` wrappers
+      - CSS comments
+      - extra whitespace / multi-line rules
+      - unsupported properties (silently dropped)
+      - unsupported selectors (silently dropped)
+
+    Returns an empty dict on empty input or when nothing maps. Never raises
+    on malformed CSS — the goal is best-effort theming, not validation.
+    """
+    if not css_text or not css_text.strip():
+        return {}
+
+    # Extract content of <style> tags if present; otherwise treat as raw CSS.
+    tag_matches = _STYLE_TAG_RE.findall(css_text)
+    css = '\n'.join(tag_matches) if tag_matches else css_text
+
+    # Strip comments before splitting into rules.
+    css = _CSS_COMMENT_RE.sub('', css)
+
+    result = {}
+    for raw_selector, raw_decls in _CSS_RULE_RE.findall(css):
+        token = _normalize_selector(raw_selector)
+        if token is None or token not in SUPPORTED_CSS_SELECTORS:
+            continue
+        decls = {}
+        for decl in raw_decls.split(';'):
+            if ':' not in decl:
+                continue
+            prop, _, value = decl.partition(':')
+            prop = prop.strip().lower()
+            value = value.strip()
+            if prop in SUPPORTED_CSS_PROPERTIES and value:
+                decls[prop] = value
+        if decls:
+            # Merge if the same trailing token appears in multiple selectors
+            # (e.g. `h1 { color: red }` + `.reveal .slides h1 { font-size: 2em }`).
+            result.setdefault(token, {}).update(decls)
+    return result
+
+
+def extract_style_block(body):
+    """Lift a top-of-deck <style>...</style> block out of `body`.
+
+    Returns (style_text, body_without_style). The style block must appear
+    *before* the first markdown heading (`# `, `## `, `### `) so per-slide
+    `<style>` tags deeper in the deck are left alone.
+
+    Returns (None, body) when no qualifying block is found.
+    """
+    if not body:
+        return None, body
+    # Find first heading offset; the style must precede it to count as
+    # deck-level. Heading detection here is line-prefix only — same rule
+    # parse_slide uses.
+    first_heading = len(body)
+    for m in re.finditer(r'(?m)^(#{1,3})\s', body):
+        first_heading = m.start()
+        break
+
+    search_window = body[:first_heading]
+    m = _STYLE_TAG_RE.search(search_window)
+    if not m:
+        return None, body
+    style_text = m.group(0)
+    cleaned = body[:m.start()] + body[m.end():]
+    cleaned = cleaned.lstrip('\n')
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    return style_text, cleaned
+
 def hex_to_rgb(hex_color):
     """Convert hex color to RGBColor"""
     hex_color = hex_color.lstrip('#')
     return RGBColor(int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16))
+
+
+# --- CSS value parsing -----------------------------------------------------
+
+_CSS_NAMED_COLORS = {
+    'black': '000000', 'white': 'FFFFFF', 'red': 'FF0000', 'green': '008000',
+    'blue': '0000FF', 'yellow': 'FFFF00', 'gray': '808080', 'grey': '808080',
+    'orange': 'FFA500', 'purple': '800080', 'pink': 'FFC0CB', 'brown': 'A52A2A',
+    'silver': 'C0C0C0', 'maroon': '800000', 'olive': '808000', 'lime': '00FF00',
+    'aqua': '00FFFF', 'teal': '008080', 'navy': '000080', 'fuchsia': 'FF00FF',
+}
+
+
+def css_parse_color(value):
+    """Parse a CSS color value to a 6-digit hex string (no leading `#`).
+
+    Returns None if the value is unrecognised. Handles:
+      - `#RGB`, `#RRGGBB`
+      - `rgb(r, g, b)` with integer components
+      - the named colors most authors actually use
+    """
+    if not value:
+        return None
+    v = value.strip().lower()
+    if v.startswith('#'):
+        v = v[1:]
+        if len(v) == 3:
+            return ''.join(c * 2 for c in v).upper()
+        if len(v) == 6:
+            return v.upper()
+        return None
+    if v.startswith('rgb('):
+        nums = re.findall(r'\d+', v)
+        if len(nums) >= 3:
+            r, g, b = (max(0, min(255, int(n))) for n in nums[:3])
+            return f'{r:02X}{g:02X}{b:02X}'
+        return None
+    return _CSS_NAMED_COLORS.get(v, None)
+
+
+def css_parse_font_size(value):
+    """Parse a CSS font-size value to a python-pptx Pt() length.
+
+    Supports `px`, `pt`, `em` (treated as 16px base). Returns None if
+    the value is unrecognised. We map `px` 1:1 to `pt` — for slide
+    output the difference is negligible and px is what reveal.js
+    authors write.
+    """
+    if not value:
+        return None
+    m = re.match(r'^\s*([0-9]*\.?[0-9]+)\s*(px|pt|em)?\s*$', value, re.IGNORECASE)
+    if not m:
+        return None
+    num = float(m.group(1))
+    unit = (m.group(2) or 'px').lower()
+    if unit == 'em':
+        num *= 16  # 1em ≈ 16px in reveal.js default sizing
+    # px == pt for slide rendering (close enough for the values authors use)
+    return Pt(num)
+
+
+def _relative_luminance(rgb_hex):
+    """WCAG relative luminance for an `RRGGBB` color (no `#`)."""
+    def _channel(c):
+        c = c / 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r = int(rgb_hex[0:2], 16)
+    g = int(rgb_hex[2:4], 16)
+    b = int(rgb_hex[4:6], 16)
+    return 0.2126 * _channel(r) + 0.7152 * _channel(g) + 0.0722 * _channel(b)
+
+
+def css_contrast_ratio(fg_hex, bg_hex):
+    """WCAG 2.x contrast ratio between two `RRGGBB` colors.
+
+    Returns a float in [1.0, 21.0]. AA large-text threshold is 3.0;
+    AA normal-text threshold is 4.5. We use 4.5 because slide titles
+    are not reliably "large text" on small screens.
+    """
+    l1 = _relative_luminance(fg_hex)
+    l2 = _relative_luminance(bg_hex)
+    lighter, darker = (l1, l2) if l1 > l2 else (l2, l1)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+# --- style override application -------------------------------------------
+
+_WCAG_AA_NORMAL = 4.5
+
+
+def _resolve_slide_bg(colors):
+    """Return the slide background as `RRGGBB` (no `#`).
+
+    The converter does not currently set an explicit slide background, so
+    we treat the default Office theme white (FFFFFF) as the effective
+    background unless `colors['slideBg']` is provided (a future extension
+    hook used by tests).
+    """
+    bg = colors.get('slideBg') or 'FFFFFF'
+    return bg.lstrip('#').upper()
+
+
+def _color_passes_contrast(fg_hex, colors):
+    """Return True iff `fg_hex` clears WCAG AA on the slide background."""
+    bg = _resolve_slide_bg(colors)
+    return css_contrast_ratio(fg_hex.lstrip('#').upper(), bg) >= _WCAG_AA_NORMAL
+
+
+def _apply_run_style(run, decls, colors, *, allow_color=True, dropped_colors=None):
+    """Apply a parsed declarations dict to a single run.
+
+    Only properties we know how to map are honored. `allow_color` lets
+    the caller suppress color application (e.g. when contrast guard
+    fails) while still picking up font-size etc.
+    """
+    if not decls:
+        return
+    fs = decls.get('font-size')
+    if fs:
+        size = css_parse_font_size(fs)
+        if size is not None:
+            run.font.size = size
+    if allow_color:
+        color = decls.get('color')
+        if color:
+            hex_val = css_parse_color(color)
+            if hex_val is not None:
+                if _color_passes_contrast(hex_val, colors):
+                    run.font.color.rgb = hex_to_rgb(hex_val)
+                elif dropped_colors is not None:
+                    dropped_colors.add(hex_val)
+    ff = decls.get('font-family')
+    if ff:
+        # Use the first family name, stripping quotes (CSS `font-family: "Foo", sans-serif`).
+        first = ff.split(',')[0].strip().strip('"').strip("'")
+        if first:
+            run.font.name = first
+    fw = decls.get('font-weight')
+    if fw:
+        fw_lc = fw.strip().lower()
+        if fw_lc in ('bold', 'bolder') or (fw_lc.isdigit() and int(fw_lc) >= 600):
+            run.font.bold = True
+        elif fw_lc in ('normal', 'lighter') or (fw_lc.isdigit() and int(fw_lc) < 600):
+            run.font.bold = False
+    fst = decls.get('font-style')
+    if fst:
+        fst_lc = fst.strip().lower()
+        if fst_lc == 'italic':
+            run.font.italic = True
+        elif fst_lc == 'normal':
+            run.font.italic = False
+    td = decls.get('text-decoration')
+    if td and 'underline' in td.lower():
+        run.font.underline = True
 
 def load_config(input_file):
     """Load configuration from JSON or YAML file"""
@@ -345,6 +627,15 @@ def highlight_code(code, lang, colors):
     
     return merged
 
+class _SlidesWithStyle(list):
+    """List subclass that carries parsed CSS overrides alongside the slides.
+
+    Existing callers iterate over it like a list (it *is* a list); the
+    renderer reads `.style_overrides` to pick up deck-level theming.
+    """
+    style_overrides: dict
+
+
 def parse_markdown(content):
     """Parse HackMD/Marp markdown into slides"""
     # Remove YAML frontmatter if present
@@ -352,10 +643,16 @@ def parse_markdown(content):
         end_idx = content.find('---', 3)
         if end_idx != -1:
             content = content[end_idx + 3:].strip()
-    
+
+    # Lift the top-of-deck <style> block (if any) before slide splitting
+    # so its lines don't leak into the first slide's content.
+    style_text, content = extract_style_block(content)
+    style_overrides = parse_style_block(style_text) if style_text else {}
+
     # Split by major sections (---)
     sections = re.split(r'\n---\n', content)
-    slides = []
+    slides = _SlidesWithStyle()
+    slides.style_overrides = style_overrides
     current_section = None
     section_idx = 0
     
@@ -628,14 +925,15 @@ def add_table_to_slide(slide, table_data, top, colors, fonts):
     return top + height + Inches(0.15)
 
 
-def add_section_slide(prs, slide_data, colors, fonts):
+def add_section_slide(prs, slide_data, colors, fonts, *, style_overrides=None):
     """Add a section/title slide using Title Slide layout (index 0)"""
     layout = prs.slide_layouts[0]  # Title Slide layout
     slide = prs.slides.add_slide(layout)
-    
+    style_overrides = style_overrides or {}
+
     # Get title text
     title_text = slide_data['title'].lstrip('# ').strip() if slide_data['title'] else ''
-    
+
     # Find and populate placeholders with formatting
     for shape in slide.placeholders:
         idx = shape.placeholder_format.idx
@@ -644,50 +942,105 @@ def add_section_slide(prs, slide_data, colors, fonts):
             tf.clear()
             p = tf.paragraphs[0]
             add_formatted_runs(p, title_text, colors, fonts)
+            _apply_overrides_to_paragraph(p, 'h1', style_overrides, colors)
         elif idx == 1:  # Subtitle placeholder
             if slide_data['subtitle']:
                 tf = shape.text_frame
                 tf.clear()
                 p = tf.paragraphs[0]
                 add_formatted_runs(p, slide_data['subtitle'], colors, fonts)
+                _apply_overrides_to_paragraph(p, 'h3', style_overrides, colors)
             else:
                 shape.text = ''
-    
+
     # Add speaker notes
     if slide_data['notes']:
         notes_slide = slide.notes_slide
         notes_slide.notes_text_frame.text = slide_data['notes']
-    
+
     return slide
 
-def add_content_slide(prs, slide_data, colors, fonts):
+
+def _apply_overrides_to_paragraph(paragraph, selector, overrides, colors):
+    """Apply `overrides[selector]` (and the bare `""` body default) to every run.
+
+    The bare selector's properties (font-size, text-align, etc.) act as
+    *defaults* — applied only if the more specific selector didn't set
+    them. This matches CSS specificity intuition without modeling full
+    cascade rules.
+    """
+    if not overrides:
+        return
+    specific = overrides.get(selector, {})
+    default = overrides.get('', {})
+    # Build an effective declaration set: specific wins per property.
+    effective = {**default, **specific}
+    if not effective:
+        return
+    for run in paragraph.runs:
+        _apply_run_style(run, effective, colors)
+
+
+def _apply_body_overrides(paragraph, overrides, colors, fonts):
+    """Apply body-default + inline-`code` overrides to a paragraph's runs.
+
+    The bare `""` selector applies to every run (it's the slide-body
+    default). The `code` selector applies only to runs that
+    add_formatted_runs flagged as inline code by setting `font.name` to
+    the code font.
+    """
+    if not overrides:
+        return
+    body_default = overrides.get('', {})
+    code_decls = overrides.get('code', {})
+    for run in paragraph.runs:
+        is_code = run.font.name == fonts['code']
+        if is_code and code_decls:
+            # Inline code: body default acts as fallback, code wins per property.
+            _apply_run_style(run, {**body_default, **code_decls}, colors)
+        elif body_default:
+            _apply_run_style(run, body_default, colors)
+
+def add_content_slide(prs, slide_data, colors, fonts, *, style_overrides=None):
     """Add a content slide using Title and Content layout (index 1)"""
     layout = prs.slide_layouts[1]  # Title and Content layout
     slide = prs.slides.add_slide(layout)
-    
+    style_overrides = style_overrides or {}
+
+    # Determine which heading selector this slide's title maps to.
+    # Markdown `#` → h1 (used by the title slides); `##` → h2; `###` → h3.
+    raw_title = slide_data['title'] or ''
+    if raw_title.startswith('### '):
+        title_selector = 'h3'
+    elif raw_title.startswith('## '):
+        title_selector = 'h2'
+    else:
+        title_selector = 'h1'
+
     # Get title
     title = slide_data['title']
     if title:
         title = re.sub(r'^#+\s*', '', title).strip()
         title = re.sub(r'^\d+\.\s*', '', title)
-    
+
     # Find placeholders
     title_shape = None
     body_shape = None
-    
+
     for shape in slide.placeholders:
         idx = shape.placeholder_format.idx
         if idx == 0:
             title_shape = shape
         elif idx == 1:
             body_shape = shape
-    
+
     # Set title with formatting
     if title_shape and title:
         tf = title_shape.text_frame
         tf.clear()
         p = tf.paragraphs[0]
         add_formatted_runs(p, title, colors, fonts)
+        _apply_overrides_to_paragraph(p, title_selector, style_overrides, colors)
     
     # Set body content
     if body_shape and slide_data['content']:
@@ -702,14 +1055,14 @@ def add_content_slide(prs, slide_data, colors, fonts):
         if not needs_explicit_layout:
             # Use body placeholder
             first_para = True
-            
+
             for item in slide_data['content']:
                 if first_para:
                     p = tf.paragraphs[0]
                     first_para = False
                 else:
                     p = tf.add_paragraph()
-                
+
                 # Set indent level for bullets/numbered only
                 if item['type'] in ['bullet', 'numbered']:
                     p.level = item.get('indent', 0)
@@ -717,14 +1070,18 @@ def add_content_slide(prs, slide_data, colors, fonts):
                     # Plain text - disable bullet
                     p.level = 0
                     disable_bullet(p)
-                
+
                 # Build text with number prefix for numbered items
                 text = item['text']
                 if item['type'] == 'numbered':
                     text = f"{item.get('number', '1')}. {text}"
-                
+
                 # Add formatted runs (bold, italic, code, links)
                 add_formatted_runs(p, text, colors, fonts)
+
+                # Apply body-default overrides (the bare `""` selector) to
+                # every run, and the `code` selector to inline-code runs only.
+                _apply_body_overrides(p, style_overrides, colors, fonts)
         else:
             tf.clear()
             p = tf.paragraphs[0]
@@ -764,7 +1121,7 @@ def add_content_slide(prs, slide_data, colors, fonts):
                         run.font.size = Pt(11)
                         run.font.name = fonts['code']
                         run.font.color.rgb = hex_to_rgb(seg['color'])
-                    
+
                     y_pos += Inches(code_height + 0.15)
                 elif item['type'] == 'table':
                     y_pos = add_table_to_slide(slide, item, y_pos, colors, fonts)
@@ -787,8 +1144,11 @@ def add_content_slide(prs, slide_data, colors, fonts):
                     
                     # Add formatted runs
                     add_formatted_runs(p, text, colors, fonts)
-                    
-                    # Set font size for all runs
+
+                    # Apply body-default + code overrides to this paragraph.
+                    _apply_body_overrides(p, style_overrides, colors, fonts)
+
+                    # Set font size for all runs that still don't have one
                     for run in p.runs:
                         if run.font.size is None:
                             run.font.size = Pt(15)
@@ -896,21 +1256,24 @@ def main():
     # Read and parse markdown
     content = Path(input_file).read_text(encoding='utf-8')
     slides_data = parse_markdown(content)
-    
+    style_overrides = getattr(slides_data, 'style_overrides', {})
+    if style_overrides:
+        print(f"Loaded style overrides: {sorted(style_overrides.keys())}")
+
     # Create presentation
     prs = Presentation()
     prs.slide_width = Inches(10)
     prs.slide_height = Inches(5.625)  # 16:9
-    
+
     # Track sections for grouping
     section_info = {}
-    
+
     # Add slides
     for slide_data in slides_data:
         if slide_data['is_section']:
-            add_section_slide(prs, slide_data, colors, fonts)
+            add_section_slide(prs, slide_data, colors, fonts, style_overrides=style_overrides)
         else:
-            add_content_slide(prs, slide_data, colors, fonts)
+            add_content_slide(prs, slide_data, colors, fonts, style_overrides=style_overrides)
         
         # Track slides per section
         sec_idx = slide_data.get('section_idx', 0)
